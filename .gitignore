@@ -5,6 +5,23 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# PRD, DESIGN, and Reference UI files
+PRD.md
+prd.md
+DESIGN.md
+design.md
+refernce_for_frontend/
+reference_for_frontend/
+Frontend/PRD.md
+Frontend/refernce_for_frontend/
+**/PRD.md
+**/prd.md
+**/DESIGN.md
+**/design.md
+**/refernce_for_frontend/**
+**/reference_for_frontend/**
+
+
 # Environment variables & secrets
 .env
 .env*.local
@@ -15,14 +32,6 @@ build/
 out/
 .next/
 .nuxt/
-
-# Python / Pycache (if backend uses python)
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
-venv/
-ENV/
 
 # System / IDE files
 .DS_Store
