@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TripStatus {
+  ONGOING
+  UPCOMING
+  COMPLETED
+}
+
+model User {
+  id                   String          @id @default(uuid())
+  firstName            String
+  lastName             String
+  email                String          @unique
+  password             String
+  phoneNumber          String?
+  photoUrl             String?
+  city                 String?
+  country              String?
+  languagePreference   String          @default("en")
+  role                 Role            @default(USER)
+  isActive             Boolean         @default(true)
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  refreshTokens        RefreshToken[]
+  trips                Trip[]
+  savedCities          UserSavedCity[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model City {
+  id              String          @id @default(uuid())
+  name            String
+  country         String
+  region          String
+  costIndex       Int             @default(3)
+  popularityScore Int             @default(0)
+  bannerImageUrl  String?
+  description     String?
+  isTopRegional   Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  savedByUsers    UserSavedCity[]
+  tripSections    TripSection[]
+
+  @@index([region])
+  @@index([isTopRegional])
+  @@index([popularityScore])
+}
+
+model UserSavedCity {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cityId    String
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, cityId])
+  @@index([userId])
+}
+
+model Trip {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  coverPhotoUrl String?
+  startDate     DateTime
+  endDate       DateTime
+  status        TripStatus
+  totalBudget   Decimal       @default(0.0) @db.Decimal(12, 2)
+  isPublic      Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sections      TripSection[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model TripSection {
+  id        String   @id @default(uuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  cityId    String?
+  city      City?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  title     String
+  order     Int
+  createdAt DateTime @default(now())
+
+  @@index([tripId])
+}
