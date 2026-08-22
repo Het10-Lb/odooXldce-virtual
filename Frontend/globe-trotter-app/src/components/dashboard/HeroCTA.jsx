@@ -1,8 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
-export default function HeroCTA({ userName = 'Alex' }) {
+export default function HeroCTA() {
   const navigate = useNavigate();
+  const { isLoggedIn, user } = useAuth();
+
+  const greetingName = isLoggedIn && user?.firstName ? user.firstName : 'Traveler';
 
   return (
     <section className="relative px-margin-mobile pt-8 pb-6 overflow-hidden">
@@ -12,7 +16,7 @@ export default function HeroCTA({ userName = 'Alex' }) {
 
       <div className="flex flex-col gap-2 mb-8">
         <h2 className="font-headline-xl-mobile text-headline-xl-mobile text-on-surface">
-          Hello, {userName}! <span className="text-3xl">👋</span>
+          Hello, {greetingName}! <span className="text-3xl">👋</span>
         </h2>
         <p className="font-body-lg text-body-lg text-on-surface-variant">Ready for your next adventure?</p>
       </div>
