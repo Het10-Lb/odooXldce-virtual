@@ -2,14 +2,20 @@ const express = require('express');
 const router = express.Router();
 const tripController = require('../controllers/tripController');
 const sectionController = require('../controllers/sectionController');
-const { verifyToken } = require('../middleware/authMiddleware');
-
-// All trip routes are protected by verifyToken middleware
-router.use(verifyToken);
+const itineraryViewController = require('../controllers/itineraryViewController');
+const { verifyToken, optionalVerifyToken } = require('../middleware/authMiddleware');
 
 /**
- * Trip Initialization & Listing Routes
+ * Public / Optional Auth Routes
  */
+
+// GET /api/trips/:id/itinerary-view - Structured day-wise itinerary & financial budget breakdown (Screens 6, 9, 10, 11)
+router.get('/:id/itinerary-view', optionalVerifyToken, itineraryViewController.getItineraryView);
+
+/**
+ * Protected Trip Routes (Require Authentication)
+ */
+router.use(verifyToken);
 
 // POST /api/trips - Create new trip (Screen 4)
 router.post('/', tripController.createTrip);

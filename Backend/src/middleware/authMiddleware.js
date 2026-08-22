@@ -76,6 +76,46 @@ const verifyToken = async (req, res, next) => {
 };
 
 /**
+ * Optional Auth Middleware: Attaches req.user if valid token provided, but does not block request if missing
+ */
+const optionalVerifyToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = verifyAccessToken(token);
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          city: true,
+          country: true,
+          role: true,
+          isActive: true,
+        },
+      });
+
+      if (user && user.isActive) {
+        req.user = user;
+      }
+    } catch (ignored) {
+      // Proceed without req.user for optional auth
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Middleware for Role-Based Access Control (RBAC)
  * @param  {...string} roles Allowed roles (e.g. 'ADMIN', 'USER')
  */
@@ -93,5 +133,6 @@ const authorizeRoles = (...roles) => {
 
 module.exports = {
   verifyToken,
+  optionalVerifyToken,
   authorizeRoles,
 };
