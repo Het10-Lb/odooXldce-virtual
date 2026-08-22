@@ -11,6 +11,7 @@ import ItineraryBuilderPage from './pages/ItineraryBuilderPage';
 import AddStopPage from './pages/AddStopPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import UserProfilePage from './pages/UserProfilePage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           {/* Dedicated flow pages with custom headers & action bars */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/create-trip" element={<CreateTripPage />} />
           <Route path="/select-cities" element={<SelectCitiesPage />} />
           <Route path="/search/cities" element={<SelectCitiesPage />} />

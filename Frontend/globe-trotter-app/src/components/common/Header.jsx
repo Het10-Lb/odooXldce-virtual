@@ -13,6 +13,11 @@ export default function Header() {
     navigate('/dashboard');
   };
 
+  const handleGoToProfile = () => {
+    setShowMenu(false);
+    navigate('/profile');
+  };
+
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
       <div className="h-16 px-margin-mobile flex items-center justify-between max-w-max-width mx-auto">
@@ -46,6 +51,16 @@ export default function Header() {
                   </p>
                   <p className="font-body-sm text-xs text-on-surface-variant truncate">{user?.email}</p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoToProfile}
+                  className="flex items-center gap-2 p-2 rounded-xl text-on-surface hover:bg-surface-container-high font-label-md text-xs transition-colors cursor-pointer w-full text-left"
+                >
+                  <span className="material-symbols-outlined text-[18px]">account_circle</span>
+                  View Profile
+                </button>
+
                 <button
                   type="button"
                   onClick={handleLogout}
