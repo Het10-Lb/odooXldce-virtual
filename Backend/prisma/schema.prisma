@@ -21,6 +21,14 @@ enum TripStatus {
   COMPLETED
 }
 
+enum ItemType {
+  TRANSPORT
+  STAY
+  ACTIVITY
+  MEAL
+  OTHER
+}
+
 model User {
   id                   String          @id @default(uuid())
   firstName            String
@@ -57,18 +65,20 @@ model RefreshToken {
 }
 
 model City {
-  id              String          @id @default(uuid())
-  name            String
-  country         String
-  region          String
-  costIndex       Int             @default(3)
-  popularityScore Int             @default(0)
-  bannerImageUrl  String?
-  description     String?
-  isTopRegional   Boolean         @default(false)
-  createdAt       DateTime        @default(now())
-  savedByUsers    UserSavedCity[]
-  tripSections    TripSection[]
+  id               String            @id @default(uuid())
+  name             String
+  country          String
+  region           String
+  costIndex        Int               @default(3)
+  popularityScore  Int               @default(0)
+  bannerImageUrl   String?
+  description      String?
+  isTopRegional    Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  savedByUsers     UserSavedCity[]
+  tripSections     TripSection[]
+  activities       Activity[]
+  sectionTemplates SectionTemplate[]
 
   @@index([region])
   @@index([isTopRegional])
@@ -96,7 +106,7 @@ model Trip {
   coverPhotoUrl String?
   startDate     DateTime
   endDate       DateTime
-  status        TripStatus
+  status        TripStatus    @default(UPCOMING)
   totalBudget   Decimal       @default(0.0) @db.Decimal(12, 2)
   isPublic      Boolean       @default(false)
   createdAt     DateTime      @default(now())
@@ -109,14 +119,97 @@ model Trip {
 }
 
 model TripSection {
-  id        String   @id @default(uuid())
-  tripId    String
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  cityId    String?
-  city      City?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
-  title     String
-  order     Int
-  createdAt DateTime @default(now())
+  id              String          @id @default(uuid())
+  tripId          String
+  trip            Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  cityId          String?
+  city            City?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  sectionTitle    String
+  startDate       DateTime
+  endDate         DateTime
+  budgetAllocated Decimal         @default(0.0) @db.Decimal(12, 2)
+  description     String?
+  orderIndex      Int             @default(1)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  items           ItineraryItem[]
 
   @@index([tripId])
+  @@index([orderIndex])
+}
+
+model Activity {
+  id                String          @id @default(uuid())
+  cityId            String
+  city              City            @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  imageUrl          String?
+  type              ItemType        @default(ACTIVITY)
+  estimatedCost     Decimal         @default(0.0) @db.Decimal(12, 2)
+  estimatedDuration String?
+  popularityScore   Int             @default(0)
+  createdAt         DateTime        @default(now())
+  itineraryItems    ItineraryItem[]
+  templateItems     TemplateItem[]
+
+  @@index([cityId])
+  @@index([type])
+  @@index([popularityScore])
+}
+
+model ItineraryItem {
+  id         String      @id @default(uuid())
+  sectionId  String
+  section    TripSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  activityId String?
+  activity   Activity?   @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  title      String
+  type       ItemType    @default(ACTIVITY)
+  startTime  String?
+  endTime    String?
+  cost       Decimal     @default(0.0) @db.Decimal(12, 2)
+  orderIndex Int         @default(1)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([sectionId])
+  @@index([orderIndex])
+}
+
+model SectionTemplate {
+  id              String         @id @default(uuid())
+  cityId          String
+  city            City           @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  durationDays    Int            @default(2)
+  suggestedBudget Decimal        @default(0.0) @db.Decimal(12, 2)
+  coverImageUrl   String?
+  popularityScore Int            @default(0)
+  createdAt       DateTime       @default(now())
+  templateItems   TemplateItem[]
+
+  @@index([cityId])
+  @@index([popularityScore])
+}
+
+model TemplateItem {
+  id            String          @id @default(uuid())
+  templateId    String
+  template      SectionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  activityId    String?
+  activity      Activity?       @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  title         String
+  type          ItemType        @default(ACTIVITY)
+  dayOffset     Int             @default(1)
+  startTime     String?
+  endTime       String?
+  estimatedCost Decimal         @default(0.0) @db.Decimal(12, 2)
+  orderIndex    Int             @default(1)
+  notes         String?
+
+  @@index([templateId])
+  @@index([orderIndex])
 }

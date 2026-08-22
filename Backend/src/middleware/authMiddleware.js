@@ -34,34 +34,40 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Verify user exists and is active in database
+    // Real-world database verification: Check user existence and active status
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: {
         id: true,
         email: true,
-        role: true,
-        isActive: true,
         firstName: true,
         lastName: true,
+        city: true,
+        country: true,
+        phoneNumber: true,
+        photoUrl: true,
+        languagePreference: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
       },
     });
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'User belonging to this token no longer exists.',
+        message: 'Authentication failed: User belonging to this token no longer exists.',
       });
     }
 
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
-        message: 'User account is deactivated. Please contact support.',
+        message: 'Access denied: User account has been deactivated.',
       });
     }
 
-    // Attach decoded user info to request
+    // Attach complete real-world user object to request
     req.user = user;
     next();
   } catch (error) {

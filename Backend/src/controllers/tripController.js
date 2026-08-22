@@ -1,37 +1,264 @@
 const prisma = require('../config/prisma');
+const {
+  createTripSchema,
+  getSuggestionsQuerySchema,
+} = require('../validators/tripValidator');
 const { myTripsQuerySchema } = require('../validators/dashboardValidator');
 
 /**
- * Helper function to calculate duration in days between two dates
+ * Helper to calculate duration in days
  */
 const calculateDurationDays = (startDate, endDate) => {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays || 1;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
 };
 
 /**
- * Helper to format raw Prisma trip model into standard response schema
+ * Helper to determine initial trip status based on start & end dates
  */
-const formatTripItem = (trip) => {
-  return {
-    id: trip.id,
-    name: trip.name,
-    description: trip.description,
-    coverPhotoUrl: trip.coverPhotoUrl,
-    startDate: trip.startDate,
-    endDate: trip.endDate,
-    status: trip.status,
-    totalBudget: trip.totalBudget,
-    isPublic: trip.isPublic,
-    createdAt: trip.createdAt,
-    updatedAt: trip.updatedAt,
-    stopsCount: trip._count?.sections ?? (trip.sections ? trip.sections.length : 0),
-    durationDays: calculateDurationDays(trip.startDate, trip.endDate),
-    sections: trip.sections || [],
-  };
+const determineTripStatus = (startDate, endDate) => {
+  const now = new Date();
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (now < start) return 'UPCOMING';
+  if (start <= now && now <= end) return 'ONGOING';
+  return 'COMPLETED';
+};
+
+/**
+ * @desc    Create a new trip (Screen 4 initialization)
+ * @route   POST /api/trips
+ * @access  Private (Protected by verifyToken)
+ */
+const createTrip = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const validatedData = createTripSchema.parse(req.body);
+    const {
+      name,
+      startDate,
+      endDate,
+      description,
+      coverPhotoUrl,
+      initialCityId,
+      initialBudget,
+      isPublic,
+    } = validatedData;
+
+    const parsedStart = new Date(startDate);
+    const parsedEnd = new Date(endDate);
+
+    if (parsedEnd < parsedStart) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trip end date cannot be earlier than start date.',
+      });
+    }
+
+    const calculatedStatus = determineTripStatus(parsedStart, parsedEnd);
+
+    // 1. Create Trip Record
+    const newTrip = await prisma.trip.create({
+      data: {
+        userId,
+        name,
+        description: description || null,
+        coverPhotoUrl: coverPhotoUrl || null,
+        startDate: parsedStart,
+        endDate: parsedEnd,
+        status: calculatedStatus,
+        totalBudget: initialBudget || 0.0,
+        isPublic: isPublic || false,
+      },
+    });
+
+    let initialSection = null;
+    let suggestedActivities = [];
+
+    // 2. If initialCityId provided, create Section 1 & fetch top activity suggestions
+    if (initialCityId) {
+      const city = await prisma.city.findUnique({
+        where: { id: initialCityId },
+      });
+
+      const sectionTitle = city ? `Section 1: ${city.name}` : 'Section 1: Destination';
+
+      initialSection = await prisma.tripSection.create({
+        data: {
+          tripId: newTrip.id,
+          cityId: initialCityId,
+          sectionTitle,
+          startDate: parsedStart,
+          endDate: parsedEnd,
+          budgetAllocated: initialBudget || 0.0,
+          orderIndex: 1,
+        },
+        include: {
+          city: true,
+          items: true,
+        },
+      });
+
+      suggestedActivities = await prisma.activity.findMany({
+        where: { cityId: initialCityId },
+        orderBy: { popularityScore: 'desc' },
+        take: 10,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Trip initialized successfully.',
+      data: {
+        trip: {
+          ...newTrip,
+          stopsCount: initialSection ? 1 : 0,
+          durationDays: calculateDurationDays(parsedStart, parsedEnd),
+        },
+        initialSection,
+        suggestedActivities,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get detailed itinerary for a specific trip
+ * @route   GET /api/trips/:id
+ * @access  Private (Protected by verifyToken)
+ */
+const getTripById = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const trip = await prisma.trip.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      include: {
+        sections: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            city: true,
+            items: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                activity: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found or access denied.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        trip: {
+          ...trip,
+          stopsCount: trip.sections.length,
+          durationDays: calculateDurationDays(trip.startDate, trip.endDate),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get catalog activity suggestions for planning a destination
+ * @route   GET /api/trips/:id/suggestions
+ * @access  Private (Protected by verifyToken)
+ */
+const getTripSuggestions = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const query = getSuggestionsQuerySchema.parse(req.query);
+    const { cityId, type, maxCost, search, page, limit } = query;
+
+    let targetCityId = cityId;
+
+    // If cityId not provided, default to destination city of first section in trip
+    if (!targetCityId) {
+      const firstSection = await prisma.tripSection.findFirst({
+        where: { tripId: id },
+        select: { cityId: true },
+        orderBy: { orderIndex: 'asc' },
+      });
+      targetCityId = firstSection?.cityId || undefined;
+    }
+
+    const where = {};
+
+    if (targetCityId) {
+      where.cityId = targetCityId;
+    }
+
+    if (type) {
+      where.type = type;
+    }
+
+    if (maxCost !== undefined) {
+      where.estimatedCost = { lte: maxCost };
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [activities, total] = await Promise.all([
+      prisma.activity.findMany({
+        where,
+        orderBy: { popularityScore: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          city: true,
+        },
+      }),
+      prisma.activity.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        targetCityId,
+        activities,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**
@@ -45,10 +272,7 @@ const getMyTrips = async (req, res, next) => {
     const query = myTripsQuerySchema.parse(req.query);
     const { search, status, groupBy, sortBy, page, limit } = query;
 
-    // 1. Build `where` clause
-    const where = {
-      userId,
-    };
+    const where = { userId };
 
     if (search) {
       where.OR = [
@@ -61,7 +285,6 @@ const getMyTrips = async (req, res, next) => {
       where.status = status;
     }
 
-    // 2. Build `orderBy` clause
     let orderBy = { startDate: 'desc' };
     if (sortBy === 'startDate_asc') {
       orderBy = { startDate: 'asc' };
@@ -73,42 +296,49 @@ const getMyTrips = async (req, res, next) => {
       orderBy = { createdAt: 'desc' };
     }
 
-    // 3. Handle Grouping Logic vs Standard Paginated List
+    const formatTripItem = (trip) => ({
+      id: trip.id,
+      name: trip.name,
+      description: trip.description,
+      coverPhotoUrl: trip.coverPhotoUrl,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      status: trip.status,
+      totalBudget: trip.totalBudget,
+      isPublic: trip.isPublic,
+      createdAt: trip.createdAt,
+      updatedAt: trip.updatedAt,
+      stopsCount: trip._count?.sections ?? (trip.sections ? trip.sections.length : 0),
+      durationDays: calculateDurationDays(trip.startDate, trip.endDate),
+      sections: trip.sections || [],
+    });
+
     if (groupBy !== 'none') {
-      // Fetch all matching trips for grouping
       const rawTrips = await prisma.trip.findMany({
         where,
         orderBy,
         include: {
           sections: {
-            include: {
-              city: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
+            include: { city: true },
+            orderBy: { orderIndex: 'asc' },
           },
-          _count: {
-            select: { sections: true },
-          },
+          _count: { select: { sections: true } },
         },
       });
 
       const formattedTrips = rawTrips.map(formatTripItem);
 
       if (groupBy === 'status') {
-        const groupedByStatus = {
-          ongoing: formattedTrips.filter((t) => t.status === 'ONGOING'),
-          upcoming: formattedTrips.filter((t) => t.status === 'UPCOMING'),
-          completed: formattedTrips.filter((t) => t.status === 'COMPLETED'),
-        };
-
         return res.status(200).json({
           success: true,
           data: {
             groupBy: 'status',
             total: formattedTrips.length,
-            groups: groupedByStatus,
+            groups: {
+              ongoing: formattedTrips.filter((t) => t.status === 'ONGOING'),
+              upcoming: formattedTrips.filter((t) => t.status === 'UPCOMING'),
+              completed: formattedTrips.filter((t) => t.status === 'COMPLETED'),
+            },
           },
         });
       }
@@ -117,9 +347,7 @@ const getMyTrips = async (req, res, next) => {
         const groupedByYear = {};
         formattedTrips.forEach((trip) => {
           const year = new Date(trip.startDate).getFullYear().toString();
-          if (!groupedByYear[year]) {
-            groupedByYear[year] = [];
-          }
+          if (!groupedByYear[year]) groupedByYear[year] = [];
           groupedByYear[year].push(trip);
         });
 
@@ -134,7 +362,6 @@ const getMyTrips = async (req, res, next) => {
       }
     }
 
-    // Standard Non-Grouped Paginated Response
     const skip = (page - 1) * limit;
 
     const [rawTrips, total] = await Promise.all([
@@ -145,16 +372,10 @@ const getMyTrips = async (req, res, next) => {
         take: limit,
         include: {
           sections: {
-            include: {
-              city: true,
-            },
-            orderBy: {
-              order: 'asc',
-            },
+            include: { city: true },
+            orderBy: { orderIndex: 'asc' },
           },
-          _count: {
-            select: { sections: true },
-          },
+          _count: { select: { sections: true } },
         },
       }),
       prisma.trip.count({ where }),
@@ -184,5 +405,8 @@ const getMyTrips = async (req, res, next) => {
 };
 
 module.exports = {
+  createTrip,
+  getTripById,
+  getTripSuggestions,
   getMyTrips,
 };

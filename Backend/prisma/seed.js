@@ -4,11 +4,12 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding GlobalTrotter database...');
+  console.log('Seeding GlobalTrotter database with Section Templates...');
 
   // 1. Seed Cities / Top Regional Destinations
   const citiesData = [
     {
+      id: 'paris',
       name: 'Paris',
       country: 'France',
       region: 'Europe',
@@ -19,6 +20,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'tokyo',
       name: 'Tokyo',
       country: 'Japan',
       region: 'East Asia',
@@ -29,6 +31,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'bali',
       name: 'Bali',
       country: 'Indonesia',
       region: 'Southeast Asia',
@@ -39,6 +42,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'bangkok',
       name: 'Bangkok',
       country: 'Thailand',
       region: 'Southeast Asia',
@@ -49,6 +53,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'rome',
       name: 'Rome',
       country: 'Italy',
       region: 'Europe',
@@ -59,6 +64,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'new-york-city',
       name: 'New York City',
       country: 'United States',
       region: 'North America',
@@ -69,6 +75,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'barcelona',
       name: 'Barcelona',
       country: 'Spain',
       region: 'Europe',
@@ -79,6 +86,7 @@ async function main() {
       isTopRegional: true,
     },
     {
+      id: 'kyoto',
       name: 'Kyoto',
       country: 'Japan',
       region: 'East Asia',
@@ -92,18 +100,221 @@ async function main() {
 
   for (const city of citiesData) {
     await prisma.city.upsert({
-      where: { id: city.name.toLowerCase().replace(/\s+/g, '-') },
+      where: { id: city.id },
       update: city,
-      create: {
-        id: city.name.toLowerCase().replace(/\s+/g, '-'),
-        ...city,
-      },
+      create: city,
     });
   }
 
   console.log(`Seeded ${citiesData.length} top regional cities.`);
 
-  // 2. Seed Sample User
+  // 2. Seed Activities Catalog
+  const activitiesData = [
+    {
+      id: 'act-paris-1',
+      cityId: 'paris',
+      title: 'Eiffel Tower Summit Access & Champagne Toast',
+      description: 'Iconic view of Paris skyline from top floor deck.',
+      type: 'ACTIVITY',
+      estimatedCost: 35.0,
+      estimatedDuration: '2.5 hours',
+      popularityScore: 99,
+    },
+    {
+      id: 'act-paris-2',
+      cityId: 'paris',
+      title: 'Louvre Museum Guided Masterpieces Tour',
+      description: 'Fast-track entry to see Mona Lisa, Venus de Milo, and Winged Victory.',
+      type: 'ACTIVITY',
+      estimatedCost: 65.0,
+      estimatedDuration: '3 hours',
+      popularityScore: 97,
+    },
+    {
+      id: 'act-tokyo-1',
+      cityId: 'tokyo',
+      title: 'Shibuya Crossing & Harajuku Street Food Crawl',
+      description: 'Guided walk through Shibuya Sky and Takeshita Street crepes.',
+      type: 'MEAL',
+      estimatedCost: 45.0,
+      estimatedDuration: '3 hours',
+      popularityScore: 98,
+    },
+    {
+      id: 'act-tokyo-2',
+      cityId: 'tokyo',
+      title: 'teamLab Planets Digital Art Museum',
+      description: 'Immersive body-on digital artwork installation in Toyosu.',
+      type: 'ACTIVITY',
+      estimatedCost: 30.0,
+      estimatedDuration: '2 hours',
+      popularityScore: 96,
+    },
+    {
+      id: 'act-kyoto-1',
+      cityId: 'kyoto',
+      title: 'Fushimi Inari Shrine Early Morning Hike',
+      description: 'Walk through 10,000 vermilion torii gates up Mount Inari.',
+      type: 'ACTIVITY',
+      estimatedCost: 0.0,
+      estimatedDuration: '2.5 hours',
+      popularityScore: 99,
+    },
+    {
+      id: 'act-rome-1',
+      cityId: 'rome',
+      title: 'Colosseum & Roman Forum VIP Arena Floor Access',
+      description: 'Walk where gladiators fought with an expert archaeologist guide.',
+      type: 'ACTIVITY',
+      estimatedCost: 55.0,
+      estimatedDuration: '3.5 hours',
+      popularityScore: 98,
+    },
+  ];
+
+  for (const act of activitiesData) {
+    await prisma.activity.upsert({
+      where: { id: act.id },
+      update: act,
+      create: act,
+    });
+  }
+
+  // 3. Seed Curated Section Templates (Predefined Section Packages)
+  const sectionTemplatesData = [
+    {
+      id: 'tpl-paris-classic-3d',
+      cityId: 'paris',
+      title: '3-Day Classic Paris Highlights',
+      description: 'Pre-designed section package featuring top art museums, Eiffel Tower, and Seine River cruises.',
+      durationDays: 3,
+      suggestedBudget: 650.0,
+      coverImageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34',
+      popularityScore: 98,
+      templateItems: {
+        create: [
+          {
+            title: 'Louvre Museum Guided Masterpieces Tour',
+            type: 'ACTIVITY',
+            activityId: 'act-paris-2',
+            dayOffset: 1,
+            startTime: '10:00 AM',
+            endTime: '01:00 PM',
+            estimatedCost: 65.0,
+            orderIndex: 1,
+          },
+          {
+            title: 'Eiffel Tower Summit & Sunset Champagne Toast',
+            type: 'ACTIVITY',
+            activityId: 'act-paris-1',
+            dayOffset: 2,
+            startTime: '06:00 PM',
+            endTime: '08:30 PM',
+            estimatedCost: 35.0,
+            orderIndex: 2,
+          },
+        ],
+      },
+    },
+    {
+      id: 'tpl-tokyo-tech-3d',
+      cityId: 'tokyo',
+      title: '3-Day Tokyo Cyberpunk & Food Tour',
+      description: 'Pre-designed section package covering futuristic digital art, Shibuya, and Tokyo culinary nightlife.',
+      durationDays: 3,
+      suggestedBudget: 800.0,
+      coverImageUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26',
+      popularityScore: 99,
+      templateItems: {
+        create: [
+          {
+            title: 'Shibuya Crossing & Harajuku Food Crawl',
+            type: 'MEAL',
+            activityId: 'act-tokyo-1',
+            dayOffset: 1,
+            startTime: '05:00 PM',
+            endTime: '08:00 PM',
+            estimatedCost: 45.0,
+            orderIndex: 1,
+          },
+          {
+            title: 'teamLab Planets Digital Art Museum',
+            type: 'ACTIVITY',
+            activityId: 'act-tokyo-2',
+            dayOffset: 2,
+            startTime: '10:00 AM',
+            endTime: '12:00 PM',
+            estimatedCost: 30.0,
+            orderIndex: 2,
+          },
+        ],
+      },
+    },
+    {
+      id: 'tpl-kyoto-zen-2d',
+      cityId: 'kyoto',
+      title: '2-Day Kyoto Zen Temple & Shrine Trail',
+      description: 'Serene preset section package exploring thousand-year-old shrines and traditional bamboo groves.',
+      durationDays: 2,
+      suggestedBudget: 450.0,
+      coverImageUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e',
+      popularityScore: 95,
+      templateItems: {
+        create: [
+          {
+            title: 'Fushimi Inari Torii Gate Hike',
+            type: 'ACTIVITY',
+            activityId: 'act-kyoto-1',
+            dayOffset: 1,
+            startTime: '07:00 AM',
+            endTime: '09:30 AM',
+            estimatedCost: 0.0,
+            orderIndex: 1,
+          },
+        ],
+      },
+    },
+    {
+      id: 'tpl-rome-history-3d',
+      cityId: 'rome',
+      title: '3-Day Imperial Rome & Ancient Wonders',
+      description: 'Step back in time with VIP Colosseum access and Vatican masterwork tours.',
+      durationDays: 3,
+      suggestedBudget: 600.0,
+      coverImageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5',
+      popularityScore: 96,
+      templateItems: {
+        create: [
+          {
+            title: 'Colosseum VIP Arena Floor Access',
+            type: 'ACTIVITY',
+            activityId: 'act-rome-1',
+            dayOffset: 1,
+            startTime: '09:00 AM',
+            endTime: '12:30 PM',
+            estimatedCost: 55.0,
+            orderIndex: 1,
+          },
+        ],
+      },
+    },
+  ];
+
+  for (const tpl of sectionTemplatesData) {
+    const { templateItems, ...templateData } = tpl;
+    await prisma.sectionTemplate.upsert({
+      where: { id: templateData.id },
+      update: templateData,
+      create: {
+        ...templateData,
+        templateItems,
+      },
+    });
+  }
+
+  console.log(`Seeded ${sectionTemplatesData.length} predefined section templates.`);
+
+  // 4. Seed Sample User
   const samplePassword = await bcrypt.hash('Password123!', 10);
   const sampleUser = await prisma.user.upsert({
     where: { email: 'demo@globetrotter.com' },
@@ -122,7 +333,7 @@ async function main() {
 
   console.log(`Seeded sample user: ${sampleUser.email}`);
 
-  // 3. Seed Sample User Saved Cities
+  // 5. Seed Sample User Saved Cities
   await prisma.userSavedCity.upsert({
     where: {
       userId_cityId: {
@@ -137,97 +348,65 @@ async function main() {
     },
   });
 
-  await prisma.userSavedCity.upsert({
-    where: {
-      userId_cityId: {
-        userId: sampleUser.id,
-        cityId: 'kyoto',
-      },
-    },
-    update: {},
-    create: {
-      userId: sampleUser.id,
-      cityId: 'kyoto',
-    },
-  });
-
-  // 4. Seed Sample Trips for User
+  // 6. Seed Sample Trips
   const now = new Date();
 
-  // Ongoing Trip
-  const ongoingTrip = await prisma.trip.upsert({
-    where: { id: 'sample-trip-ongoing-1' },
-    update: {},
-    create: {
+  await prisma.trip.deleteMany({
+    where: { userId: sampleUser.id },
+  });
+
+  const ongoingTrip = await prisma.trip.create({
+    data: {
       id: 'sample-trip-ongoing-1',
       userId: sampleUser.id,
       name: 'Autumn in Japan Expedition',
       description: 'Exploring vibrant Tokyo streets and serene Kyoto bamboo groves.',
       coverPhotoUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26',
-      startDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      endDate: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000), // in 5 days
+      startDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
       status: 'ONGOING',
-      totalBudget: 3500.00,
+      totalBudget: 3500.0,
       isPublic: true,
       sections: {
         create: [
-          { title: 'Tokyo Exploration & Shibuya Crossing', order: 1, cityId: 'tokyo' },
-          { title: 'Kyoto Temples & Arashiyama', order: 2, cityId: 'kyoto' },
+          {
+            id: 'sec-tokyo-1',
+            sectionTitle: 'Tokyo Neon & Culinary Wonders',
+            startDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+            endDate: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000),
+            budgetAllocated: 2000.0,
+            cityId: 'tokyo',
+            orderIndex: 1,
+            description: 'Stops at Shibuya, Shinjuku, and Toyosu.',
+            items: {
+              create: [
+                {
+                  title: 'Shibuya Crossing & Harajuku Food Crawl',
+                  type: 'MEAL',
+                  activityId: 'act-tokyo-1',
+                  startTime: '05:00 PM',
+                  endTime: '08:00 PM',
+                  cost: 45.0,
+                  orderIndex: 1,
+                },
+                {
+                  title: 'teamLab Planets Digital Art Museum',
+                  type: 'ACTIVITY',
+                  activityId: 'act-tokyo-2',
+                  startTime: '10:00 AM',
+                  endTime: '12:00 PM',
+                  cost: 30.0,
+                  orderIndex: 2,
+                },
+              ],
+            },
+          },
         ],
       },
     },
   });
 
-  // Upcoming Trip
-  const upcomingTrip = await prisma.trip.upsert({
-    where: { id: 'sample-trip-upcoming-1' },
-    update: {},
-    create: {
-      id: 'sample-trip-upcoming-1',
-      userId: sampleUser.id,
-      name: 'European Romance Escape',
-      description: 'Summer getaway across Paris cafes and Roman ruins.',
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34',
-      startDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // in 30 days
-      endDate: new Date(now.getTime() + 42 * 24 * 60 * 60 * 1000),
-      status: 'UPCOMING',
-      totalBudget: 4200.00,
-      isPublic: false,
-      sections: {
-        create: [
-          { title: 'Parisian Museums & Eiffel Tower', order: 1, cityId: 'paris' },
-          { title: 'Rome Colosseum Tour', order: 2, cityId: 'rome' },
-          { title: 'Barcelona Beach Relax', order: 3, cityId: 'barcelona' },
-        ],
-      },
-    },
-  });
-
-  // Completed Trip
-  const completedTrip = await prisma.trip.upsert({
-    where: { id: 'sample-trip-completed-1' },
-    update: {},
-    create: {
-      id: 'sample-trip-completed-1',
-      userId: sampleUser.id,
-      name: 'Southeast Asia Backpacking',
-      description: 'Incredible island hopping and street food trail.',
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4',
-      startDate: new Date('2025-11-01'),
-      endDate: new Date('2025-11-20'),
-      status: 'COMPLETED',
-      totalBudget: 2100.00,
-      isPublic: true,
-      sections: {
-        create: [
-          { title: 'Bangkok Markets', order: 1, cityId: 'bangkok' },
-          { title: 'Bali Beach & Rice Terraces', order: 2, cityId: 'bali' },
-        ],
-      },
-    },
-  });
-
-  console.log('Seeded sample trips:', [ongoingTrip.name, upcomingTrip.name, completedTrip.name]);
+  console.log('Seeded sample trip:', ongoingTrip.name);
   console.log('Seeding completed successfully!');
 }
 
