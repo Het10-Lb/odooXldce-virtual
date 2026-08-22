@@ -9,7 +9,7 @@ const { verifyToken, optionalVerifyToken } = require('../middleware/authMiddlewa
  * Public / Optional Auth Routes
  */
 
-// GET /api/trips/:id/itinerary-view - Structured day-wise itinerary & financial budget breakdown (Screens 6, 9, 10, 11)
+// GET /api/trips/:id/itinerary-view - Structured day-wise itinerary & financial budget breakdown
 router.get('/:id/itinerary-view', optionalVerifyToken, itineraryViewController.getItineraryView);
 
 /**
@@ -17,11 +17,15 @@ router.get('/:id/itinerary-view', optionalVerifyToken, itineraryViewController.g
  */
 router.use(verifyToken);
 
-// POST /api/trips - Create new trip (Screen 4)
+// POST /api/trips - Create new trip
 router.post('/', tripController.createTrip);
 
-// GET /api/trips/my-trips - List user trips with search/filter/grouping (Screen 6)
+// GET /api/trips & GET /api/trips/my-trips - List user trips
+router.get('/', tripController.getMyTrips);
 router.get('/my-trips', tripController.getMyTrips);
+
+// DELETE /api/trips/:id - Delete a trip
+router.delete('/:id', tripController.deleteTrip);
 
 // GET /api/trips/sections/templates - Browse curated section packages / templates
 router.get('/sections/templates', sectionController.getSectionTemplates);
@@ -33,10 +37,10 @@ router.get('/:id', tripController.getTripById);
 router.get('/:id/suggestions', tripController.getTripSuggestions);
 
 /**
- * Section / Stop Management & Predefined Template Package Routes (Screen 5 & 9)
+ * Section / Stop Management Routes
  */
 
-// POST /api/trips/:id/sections/attach-template - Attach & clone a predefined section package directly into a trip
+// POST /api/trips/:id/sections/attach-template - Attach & clone predefined section package
 router.post('/:id/sections/attach-template', sectionController.attachTemplateSection);
 
 // POST /api/trips/:id/sections - Add custom section/stop to trip
@@ -51,7 +55,7 @@ router.put('/:id/sections/reorder', sectionController.reorderItinerary);
 // PUT /api/trips/:id/sections/:sectionId - Update section metadata & sync budget
 router.put('/:id/sections/:sectionId', sectionController.updateSection);
 
-// DELETE /api/trips/:id/sections/:sectionId - Delete section & cascade items
+// DELETE /api/trips/:id/sections/:sectionId - Delete section/city & cascade items
 router.delete('/:id/sections/:sectionId', sectionController.deleteSection);
 
 /**
@@ -60,5 +64,8 @@ router.delete('/:id/sections/:sectionId', sectionController.deleteSection);
 
 // POST /api/trips/:id/sections/:sectionId/items - Add activity, transport, stay or meal to section
 router.post('/:id/sections/:sectionId/items', sectionController.addItemToSection);
+
+// DELETE /api/trips/:id/sections/:sectionId/items/:itemId - Delete specific activity item
+router.delete('/:id/sections/:sectionId/items/:itemId', sectionController.deleteItemFromSection);
 
 module.exports = router;

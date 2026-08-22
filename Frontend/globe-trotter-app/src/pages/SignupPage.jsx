@@ -10,39 +10,41 @@ export default function SignupPage() {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    password: '',
+    phoneNumber: '',
     city: '',
     country: '',
-    photo: '',
-    bio: '',
   });
 
-  const [previewPhoto, setPreviewPhoto] = useState(null);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setError('');
   };
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewPhoto(objectUrl);
-      setFormData((prev) => ({ ...prev, photo: objectUrl }));
-    }
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.firstName.trim() || !formData.email.trim()) {
-      setError('Please fill in required fields (First Name & Email).');
+    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim() || !formData.password.trim()) {
+      setError('Please fill in required fields (First Name, Last Name, Email & Password).');
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
       return;
     }
 
-    signup(formData);
-    navigate('/dashboard');
+    try {
+      setIsLoading(true);
+      setError('');
+      await signup(formData);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message || 'Registration failed.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -52,40 +54,31 @@ export default function SignupPage() {
         <div className="h-16 px-4 flex items-center gap-3 max-w-max-width mx-auto">
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/login')}
             className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="font-headline-md text-headline-md text-on-surface">Registration</h1>
+          <h1 className="font-headline-md text-headline-md text-on-surface">Create Account</h1>
         </div>
       </header>
 
-      {/* Registration Card Container matching Screen 2 wireframe */}
+      {/* Registration Card Container */}
       <div className="w-full max-w-[560px] mx-auto bg-surface-container rounded-3xl p-8 shadow-md border border-outline-variant/20 mt-12 flex flex-col gap-6">
-        {/* Photo Upload Circle at Top */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="relative w-24 h-24 rounded-full bg-surface-container-highest flex flex-col items-center justify-center border-2 border-dashed border-primary/40 overflow-hidden group cursor-pointer hover:border-primary transition-all">
-            {previewPhoto ? (
-              <img src={previewPhoto} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center text-primary">
-                <span className="material-symbols-outlined text-2xl">add_a_photo</span>
-                <span className="font-label-sm text-[10px] uppercase font-bold mt-1">Photo</span>
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
+        <div className="flex flex-col gap-2 text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2 shadow-inner">
+            <span className="material-symbols-outlined text-3xl">person_add</span>
           </div>
-          <span className="font-label-sm text-xs text-on-surface-variant">Tap circle to add profile photo</span>
+          <h2 className="font-headline-xl-mobile text-headline-xl-mobile text-on-surface">
+            Join GlobeTrotter ✈️
+          </h2>
+          <p className="font-body-md text-on-surface-variant text-sm">
+            Create an account to start planning your journeys
+          </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-error-container/40 text-on-error-container rounded-xl text-xs font-label-sm text-center">
+          <div className="p-3 bg-error/10 text-error rounded-xl text-xs font-label-sm text-center">
             {error}
           </div>
         )}
@@ -100,7 +93,8 @@ export default function SignupPage() {
               <input
                 id="first-name"
                 type="text"
-                placeholder="First Name"
+                required
+                placeholder="Alex"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
@@ -109,12 +103,13 @@ export default function SignupPage() {
 
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="last-name">
-                Last Name
+                Last Name <span className="text-error">*</span>
               </label>
               <input
                 id="last-name"
                 type="text"
-                placeholder="Last Name"
+                required
+                placeholder="Morgan"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
@@ -122,7 +117,7 @@ export default function SignupPage() {
             </div>
           </div>
 
-          {/* 2-Column Grid Fields: Email Address & Phone Number */}
+          {/* 2-Column Grid Fields: Email Address & Password */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="email-address">
@@ -131,7 +126,8 @@ export default function SignupPage() {
               <input
                 id="email-address"
                 type="email"
-                placeholder="Email Address"
+                required
+                placeholder="alex@example.com"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
@@ -139,22 +135,37 @@ export default function SignupPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="password">
+                Password <span className="text-error">*</span>
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                placeholder="At least 6 characters"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
+              />
+            </div>
+          </div>
+
+          {/* 2-Column Grid Fields: Phone Number & City */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="phone-number">
                 Phone Number
               </label>
               <input
                 id="phone-number"
                 type="tel"
-                placeholder="Phone Number"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
+                placeholder="+91 9876543210"
+                value={formData.phoneNumber}
+                onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
               />
             </div>
-          </div>
 
-          {/* 2-Column Grid Fields: City & Country */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="user-city">
                 City
@@ -162,50 +173,37 @@ export default function SignupPage() {
               <input
                 id="user-city"
                 type="text"
-                placeholder="City"
+                placeholder="e.g. Ahmedabad"
                 value={formData.city}
                 onChange={(e) => handleInputChange('city', e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
               />
             </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="user-country">
-                Country
-              </label>
-              <input
-                id="user-country"
-                type="text"
-                placeholder="Country"
-                value={formData.country}
-                onChange={(e) => handleInputChange('country', e.target.value)}
-                className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
-              />
-            </div>
           </div>
 
-          {/* Additional Information Textarea */}
+          {/* Country Field */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="additional-info">
-              Additional Information....
+            <label className="font-label-md text-on-surface text-xs ml-1" htmlFor="user-country">
+              Country
             </label>
-            <textarea
-              id="additional-info"
-              rows={3}
-              placeholder="Tell us about your travel style, preferences, or bio..."
-              value={formData.bio}
-              onChange={(e) => handleInputChange('bio', e.target.value)}
-              className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant resize-none transition-all"
+            <input
+              id="user-country"
+              type="text"
+              placeholder="e.g. India"
+              value={formData.country}
+              onChange={(e) => handleInputChange('country', e.target.value)}
+              className="w-full bg-surface-container-low text-on-surface font-body-md p-3.5 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
             />
           </div>
 
-          {/* Register Users Button */}
+          {/* Submit Button */}
           <button
             type="submit"
-            className="mt-2 w-full py-4 bg-electric-sky text-on-primary font-label-md rounded-xl shadow-md hover:bg-primary transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className="mt-2 w-full py-4 bg-electric-sky text-on-primary font-label-md rounded-xl shadow-md hover:bg-primary transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            Register Users
-            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+            {isLoading ? 'Creating Account...' : 'Register'}
+            {!isLoading && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
           </button>
         </form>
 

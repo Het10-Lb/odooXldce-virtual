@@ -1,92 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/common/Header';
 import ActivityCard from '../components/select-activities/ActivityCard';
 import CategoryFilterPills from '../components/select-activities/CategoryFilterPills';
-
-const MOCK_ACTIVITIES = [
-  {
-    id: 'jaipur-ballooning',
-    cityName: 'Jaipur',
-    title: 'Hot Air Ballooning',
-    category: 'Adventure',
-    duration: '3h',
-    rating: 4.9,
-    reviewsCount: 120,
-    price: 8500,
-    image:
-      'https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'jaipur-food-tour',
-    cityName: 'Jaipur',
-    title: 'Local Food Tour',
-    category: 'Food',
-    duration: '2.5h',
-    rating: 4.8,
-    reviewsCount: 85,
-    price: 1200,
-    image:
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'goa-scuba',
-    cityName: 'Goa',
-    title: 'Scuba Diving',
-    category: 'Adventure',
-    duration: '4h',
-    rating: 4.7,
-    reviewsCount: 210,
-    price: 3500,
-    image:
-      'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'goa-heritage-walk',
-    cityName: 'Goa',
-    title: 'Heritage Walk',
-    category: 'Culture',
-    duration: '2h',
-    rating: 4.6,
-    reviewsCount: 95,
-    price: 800,
-    image:
-      'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'mumbai-sunset-cruise',
-    cityName: 'Mumbai',
-    title: 'Marine Drive Sunset Cruise',
-    category: 'Leisure',
-    duration: '1.5h',
-    rating: 4.9,
-    reviewsCount: 310,
-    price: 2500,
-    image:
-      'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?auto=format&fit=crop&w=800&q=80',
-  },
-];
+import { fetchDestinationById, fetchTopRegionalDestinations } from '../services/api';
 
 export default function SelectActivitiesPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const selectedCitiesFromState = location.state?.selectedCities || [];
+  const initialTripInfo = location.state?.tripInfo || null;
+
+  const [activitiesList, setActivitiesList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [selectedActivityIds, setSelectedActivityIds] = useState(['goa-heritage-walk']);
+  const [selectedActivityIds, setSelectedActivityIds] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadActivitiesForSelectedCities() {
+      try {
+        setIsLoading(true);
+
+        let fetchedActivities = [];
+        let citiesToFetch = selectedCitiesFromState;
+
+        // Fallback: If no cities passed in state, fetch top 5 cities from database
+        if (citiesToFetch.length === 0) {
+          const topData = await fetchTopRegionalDestinations({ limit: 5 });
+          if (topData?.destinations) {
+            citiesToFetch = topData.destinations;
+          }
+        }
+
+        if (citiesToFetch.length > 0) {
+          const promises = citiesToFetch.map((city) => fetchDestinationById(city.id));
+          const cityDetails = await Promise.all(promises);
+
+          cityDetails.forEach((dest, idx) => {
+            const cityName = dest?.name || citiesToFetch[idx]?.name || 'Destination';
+            if (dest?.activities) {
+              dest.activities.forEach((act) => {
+                fetchedActivities.push({
+                  id: act.id,
+                  cityId: act.cityId,
+                  cityName: cityName,
+                  title: act.title,
+                  category: act.type || 'Activity',
+                  duration: act.estimatedDuration || `${act.durationHours || 2}h`,
+                  durationHours: act.durationHours || 2,
+                  rating: 4.8,
+                  reviewsCount: act.popularityScore || 85,
+                  price: parseFloat(act.estimatedCost) || 1200,
+                  image:
+                    act.imageUrl ||
+                    dest?.bannerImageUrl ||
+                    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80',
+                  description: act.description,
+                });
+              });
+            }
+          });
+        }
+
+        if (isMounted) {
+          setActivitiesList(fetchedActivities);
+          if (fetchedActivities.length > 0) {
+            setSelectedActivityIds([fetchedActivities[0].id]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load activities from database:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadActivitiesForSelectedCities();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleToggleActivity = (activityId) => {
     setSelectedActivityIds((prev) =>
-      prev.includes(activityId)
-        ? prev.filter((id) => id !== activityId)
-        : [...prev, activityId]
+      prev.includes(activityId) ? prev.filter((id) => id !== activityId) : [...prev, activityId]
     );
   };
 
-  // Filter activities by search & category
-  const filteredActivities = MOCK_ACTIVITIES.filter((act) => {
+  // Filter activities by search & category flexibly
+  const filteredActivities = activitiesList.filter((act) => {
+    const actCat = act.category.toLowerCase();
+    const selCat = activeCategory.toLowerCase();
     const matchesCategory =
-      activeCategory === 'All' || act.category.toLowerCase() === activeCategory.toLowerCase();
+      activeCategory === 'All' ||
+      actCat.includes(selCat) ||
+      selCat.includes(actCat) ||
+      (selCat === 'culture' && actCat.includes('heritage')) ||
+      (selCat === 'leisure' && actCat.includes('sightseeing'));
+
     const matchesSearch =
       act.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       act.cityName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -103,15 +117,19 @@ export default function SelectActivitiesPage() {
     return acc;
   }, {});
 
-  // Compute live selection totals
-  const selectedActivities = MOCK_ACTIVITIES.filter((act) =>
+  const selectedActivities = activitiesList.filter((act) =>
     selectedActivityIds.includes(act.id)
   );
   const totalPrice = selectedActivities.reduce((sum, act) => sum + act.price, 0);
 
   const handleReviewItinerary = () => {
     navigate('/itinerary-builder', {
-      state: { selectedActivities, totalPrice },
+      state: {
+        selectedCities: selectedCitiesFromState,
+        selectedActivities,
+        totalPrice,
+        tripInfo: initialTripInfo,
+      },
     });
   };
 
@@ -127,7 +145,7 @@ export default function SelectActivitiesPage() {
               Choose your activities
             </h2>
             <p className="font-body-lg text-body-lg text-on-surface-variant">
-              Pick experiences for your selected cities.
+              Pick experiences from database for your selected cities.
             </p>
           </div>
 
@@ -162,39 +180,42 @@ export default function SelectActivitiesPage() {
           />
 
           {/* City Grouped Activities List */}
-          <div className="px-margin-mobile flex flex-col gap-8">
-            {Object.keys(cityGroups).length > 0 ? (
-              Object.entries(cityGroups).map(([cityName, activities]) => (
-                <div key={cityName} className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-headline-md text-headline-md text-on-surface">
-                      {cityName}
-                    </h3>
-                    <button className="font-label-md text-label-md text-primary hover:underline cursor-pointer">
-                      View map
-                    </button>
-                  </div>
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="px-margin-mobile flex flex-col gap-8">
+              {Object.keys(cityGroups).length > 0 ? (
+                Object.entries(cityGroups).map(([cityName, activities]) => (
+                  <div key={cityName} className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-headline-md text-headline-md text-on-surface">
+                        {cityName}
+                      </h3>
+                    </div>
 
-                  <div className="flex flex-col gap-4">
-                    {activities.map((activity) => (
-                      <ActivityCard
-                        key={activity.id}
-                        activity={activity}
-                        isSelected={selectedActivityIds.includes(activity.id)}
-                        onToggle={handleToggleActivity}
-                      />
-                    ))}
+                    <div className="flex flex-col gap-4">
+                      {activities.map((activity) => (
+                        <ActivityCard
+                          key={activity.id}
+                          activity={activity}
+                          isSelected={selectedActivityIds.includes(activity.id)}
+                          onToggle={handleToggleActivity}
+                        />
+                      ))}
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="p-8 text-center bg-surface-container rounded-2xl">
+                  <p className="font-body-md text-on-surface-variant">
+                    No activities found for "{searchQuery}" under {activeCategory}.
+                  </p>
                 </div>
-              ))
-            ) : (
-              <div className="p-8 text-center bg-surface-container rounded-2xl">
-                <p className="font-body-md text-on-surface-variant">
-                  No activities found for "{searchQuery}" under {activeCategory}.
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 

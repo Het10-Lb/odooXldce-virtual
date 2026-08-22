@@ -16,11 +16,15 @@ const { errorHandler, notFoundHandler } = require('./src/middleware/errorMiddlew
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Core Middlewares
+// Core Middlewares - Flexible CORS for development (allowing Vite dev server ports)
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    // Allow any origin in development / local environment (e.g. localhost:5173, localhost:3000, 127.0.0.1, Postman, etc.)
+    callback(null, true);
+  },
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

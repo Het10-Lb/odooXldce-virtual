@@ -10,12 +10,7 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     setShowMenu(false);
-    navigate('/dashboard');
-  };
-
-  const handleGoToProfile = () => {
-    setShowMenu(false);
-    navigate('/profile');
+    navigate('/login');
   };
 
   return (
@@ -35,8 +30,8 @@ export default function Header() {
               className="w-10 h-10 rounded-full border-2 border-primary overflow-hidden shadow-sm hover:scale-105 transition-transform cursor-pointer flex items-center justify-center bg-primary"
               aria-label="User menu"
             >
-              {user?.photo ? (
-                <img src={user.photo} alt={user.firstName || 'Profile'} className="w-full h-full object-cover" />
+              {user?.photoUrl ? (
+                <img src={user.photoUrl} alt={user.firstName || 'Profile'} className="w-full h-full object-cover" />
               ) : (
                 <span className="material-symbols-outlined text-on-primary text-[20px]">person</span>
               )}
@@ -52,19 +47,19 @@ export default function Header() {
                   <p className="font-body-sm text-xs text-on-surface-variant truncate">{user?.email}</p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleGoToProfile}
+                <Link
+                  to="/profile"
+                  onClick={() => setShowMenu(false)}
                   className="flex items-center gap-2 p-2 rounded-xl text-on-surface hover:bg-surface-container-high font-label-md text-xs transition-colors cursor-pointer w-full text-left"
                 >
                   <span className="material-symbols-outlined text-[18px]">account_circle</span>
                   View Profile
-                </button>
+                </Link>
 
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-2 p-2 rounded-xl text-error hover:bg-error-container/20 font-label-md text-xs transition-colors cursor-pointer w-full text-left"
+                  className="flex items-center gap-2 p-2 rounded-xl text-error hover:bg-error/10 font-label-md text-xs transition-colors cursor-pointer w-full text-left"
                 >
                   <span className="material-symbols-outlined text-[18px]">logout</span>
                   Log Out

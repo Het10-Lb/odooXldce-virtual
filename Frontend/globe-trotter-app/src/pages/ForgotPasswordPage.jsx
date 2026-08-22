@@ -1,31 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { requestForgotPassword } from '../services/api';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
-
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [devDebug, setDevDebug] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError('Please fill in both email and password.');
+    if (!email.trim()) {
+      setError('Please enter your email address.');
       return;
     }
 
     try {
       setIsLoading(true);
       setError('');
-      await login(email, password);
-      navigate('/dashboard');
+      setMessage('');
+      const response = await requestForgotPassword(email);
+      setMessage(response.message || 'If an account exists, a reset link has been sent.');
+      if (response.devDebug) {
+        setDevDebug(response.devDebug);
+      }
     } catch (err) {
-      setError(err.message || 'Invalid email or password.');
+      setError(err.message || 'Failed to request password reset.');
     } finally {
       setIsLoading(false);
     }
@@ -38,27 +40,26 @@ export default function LoginPage() {
         <div className="h-16 px-4 flex items-center gap-3 max-w-max-width mx-auto">
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/login')}
             className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="font-headline-md text-headline-md text-on-surface">Log In</h1>
+          <h1 className="font-headline-md text-headline-md text-on-surface">Forgot Password</h1>
         </div>
       </header>
 
-      {/* Login Card Container */}
+      {/* Forgot Password Card */}
       <div className="w-full max-w-[420px] mx-auto bg-surface-container rounded-3xl p-8 shadow-md border border-outline-variant/20 mt-12 flex flex-col gap-6">
-        {/* Title Header */}
         <div className="flex flex-col gap-2 text-center">
           <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2 shadow-inner">
-            <span className="material-symbols-outlined text-3xl">flight_takeoff</span>
+            <span className="material-symbols-outlined text-3xl">lock_reset</span>
           </div>
           <h2 className="font-headline-xl-mobile text-headline-xl-mobile text-on-surface">
-            Welcome Back 👋
+            Reset Password
           </h2>
           <p className="font-body-md text-on-surface-variant text-sm">
-            Log in to manage your trips and itineraries
+            Enter your registered email address to receive reset instructions
           </p>
         </div>
 
@@ -68,10 +69,24 @@ export default function LoginPage() {
           </div>
         )}
 
+        {message && (
+          <div className="p-3 bg-primary/10 text-primary rounded-xl text-xs font-label-sm text-center">
+            {message}
+          </div>
+        )}
+
+        {devDebug && (
+          <div className="p-3 bg-surface-container-high border border-primary/20 rounded-xl text-xs text-on-surface flex flex-col gap-1 break-all">
+            <span className="font-bold text-primary">Dev Testing Link:</span>
+            <a href={devDebug.resetUrl} className="text-primary underline">
+              {devDebug.resetUrl}
+            </a>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {/* Email Input */}
           <div className="flex flex-col gap-2">
-            <label className="font-label-md text-on-surface text-sm ml-1" htmlFor="login-username">
+            <label className="font-label-md text-on-surface text-sm ml-1" htmlFor="reset-email">
               Email Address
             </label>
             <div className="relative">
@@ -79,75 +94,32 @@ export default function LoginPage() {
                 mail
               </span>
               <input
-                id="login-username"
+                id="reset-email"
                 type="email"
                 required
                 placeholder="e.g. alex.morgan@example.com"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError('');
-                }}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface font-body-md py-3.5 pl-12 pr-4 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
               />
             </div>
           </div>
 
-          {/* Password Input */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center ml-1">
-              <label className="font-label-md text-on-surface text-sm" htmlFor="login-password">
-                Password
-              </label>
-              <Link to="/forgot-password" className="text-xs text-primary font-label-sm hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">
-                lock
-              </span>
-              <input
-                id="login-password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError('');
-                }}
-                className="w-full bg-surface-container-low text-on-surface font-body-md py-3.5 pl-12 pr-12 rounded-xl outline-none focus:bg-surface-container-high focus:ring-2 focus:ring-primary placeholder:text-outline-variant transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">
-                  {showPassword ? 'visibility_off' : 'visibility'}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Login Button */}
           <button
             type="submit"
             disabled={isLoading}
             className="mt-2 w-full py-4 bg-electric-sky text-on-primary font-label-md rounded-xl shadow-md hover:bg-primary transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {isLoading ? 'Logging in...' : 'Log In'}
-            {!isLoading && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
+            {isLoading ? 'Sending...' : 'Send Reset Link'}
+            {!isLoading && <span className="material-symbols-outlined text-[20px]">send</span>}
           </button>
         </form>
 
-        {/* Footer Link to Signup */}
         <div className="text-center pt-2">
           <p className="font-body-sm text-on-surface-variant text-xs">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-primary font-label-md font-semibold hover:underline ml-1">
-              Register Here
+            Remembered your password?{' '}
+            <Link to="/login" className="text-primary font-label-md font-semibold hover:underline ml-1">
+              Back to Login
             </Link>
           </p>
         </div>

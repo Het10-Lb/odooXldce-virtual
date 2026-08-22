@@ -404,9 +404,44 @@ const getMyTrips = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Delete a trip by ID
+ * @route   DELETE /api/trips/:id
+ * @access  Private (Protected by verifyToken)
+ */
+const deleteTrip = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { id: tripId } = req.params;
+
+    const trip = await prisma.trip.findFirst({
+      where: { id: tripId, userId },
+    });
+
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found or unauthorized.',
+      });
+    }
+
+    await prisma.trip.delete({
+      where: { id: tripId },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Trip deleted successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createTrip,
   getTripById,
   getTripSuggestions,
   getMyTrips,
+  deleteTrip,
 };

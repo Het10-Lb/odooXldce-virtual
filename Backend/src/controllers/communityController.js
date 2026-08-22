@@ -28,9 +28,15 @@ const formatPost = (post, currentUserId) => {
  */
 const getCommunityPosts = async (req, res, next) => {
   try {
-    const currentUserId = req.user?.id;
-    const query = getPostsQuerySchema.parse(req.query);
+    let query = {};
+    try {
+      query = getPostsQuerySchema.parse(req.query || {});
+    } catch (_err) {
+      query = { page: 1, limit: 10, sortBy: 'latest', groupBy: 'none' };
+    }
     const { search, cityId, region, category, hasTripLinked, groupBy, sortBy, page, limit } = query;
+
+    const currentUserId = req.user?.id;
 
     const where = {};
 

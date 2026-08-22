@@ -548,9 +548,32 @@ const addItemToSection = async (req, res, next) => {
       });
     }
 
-    const section = await prisma.tripSection.findFirst({
-      where: { id: sectionId, tripId },
-    });
+    let targetSectionId = sectionId;
+    let section = null;
+
+    if (sectionId === 'auto' || sectionId === 'default') {
+      section = await prisma.tripSection.findFirst({
+        where: { tripId },
+        orderBy: { orderIndex: 'asc' },
+      });
+      if (!section) {
+        section = await prisma.tripSection.create({
+          data: {
+            tripId,
+            sectionTitle: 'Main Itinerary',
+            startDate: trip.startDate,
+            endDate: trip.endDate,
+            budgetAllocated: trip.totalBudget || 5000,
+            orderIndex: 1,
+          },
+        });
+      }
+      targetSectionId = section.id;
+    } else {
+      section = await prisma.tripSection.findFirst({
+        where: { id: sectionId, tripId },
+      });
+    }
 
     if (!section) {
       return res.status(404).json({
@@ -560,7 +583,7 @@ const addItemToSection = async (req, res, next) => {
     }
 
     const lastItem = await prisma.itineraryItem.findFirst({
-      where: { sectionId },
+      where: { sectionId: targetSectionId },
       orderBy: { orderIndex: 'desc' },
       select: { orderIndex: true },
     });
@@ -569,7 +592,7 @@ const addItemToSection = async (req, res, next) => {
 
     const newItem = await prisma.itineraryItem.create({
       data: {
-        sectionId,
+        sectionId: targetSectionId,
         activityId: validatedData.activityId || null,
         title: validatedData.title,
         type: validatedData.type || 'ACTIVITY',
@@ -660,6 +683,51 @@ const reorderItinerary = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Delete an itinerary item (activity/stay/transport) from a section
+ * @route   DELETE /api/trips/:id/sections/:sectionId/items/:itemId
+ * @access  Private (Protected by verifyToken)
+ */
+const deleteItemFromSection = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { id: tripId, sectionId, itemId } = req.params;
+
+    const trip = await prisma.trip.findFirst({
+      where: { id: tripId, userId },
+    });
+
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found or unauthorized.',
+      });
+    }
+
+    const item = await prisma.itineraryItem.findFirst({
+      where: { id: itemId, sectionId },
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Item not found in section.',
+      });
+    }
+
+    await prisma.itineraryItem.delete({
+      where: { id: itemId },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Itinerary item deleted successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getSectionTemplates,
   attachTemplateSection,
@@ -668,5 +736,6 @@ module.exports = {
   updateSection,
   deleteSection,
   addItemToSection,
+  deleteItemFromSection,
   reorderItinerary,
 };

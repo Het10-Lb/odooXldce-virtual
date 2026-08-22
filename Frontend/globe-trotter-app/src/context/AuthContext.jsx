@@ -1,69 +1,94 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loginUser, registerUser, getMe } from '../services/api';
 
 const AuthContext = createContext(null);
 
-const DEFAULT_USER = {
-  firstName: 'Alex',
-  lastName: 'Morgan',
-  email: 'alex.morgan@example.com',
-  phone: '+1 234 567 8900',
-  city: 'Paris',
-  country: 'France',
-  photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-  bio: 'Passionate globetrotter & travel blogger.',
-};
-
 export function AuthProvider({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('gt_is_logged_in') === 'true';
+    return Boolean(localStorage.getItem('gt_access_token'));
   });
 
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('gt_user');
-    return saved ? JSON.parse(saved) : DEFAULT_USER;
+    return saved ? JSON.parse(saved) : null;
   });
 
-  useEffect(() => {
-    localStorage.setItem('gt_is_logged_in', isLoggedIn.toString());
-    if (user) {
-      localStorage.setItem('gt_user', JSON.stringify(user));
-    }
-  }, [isLoggedIn, user]);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  const login = (credentials) => {
-    // Simulating authentication login
-    const loggedUser = {
-      ...user,
-      email: credentials?.email || user.email,
+  // Validate session on mount if token exists
+  useEffect(() => {
+    let isMounted = true;
+    async function checkAuthSession() {
+      const token = localStorage.getItem('gt_access_token');
+      if (token) {
+        try {
+          const currentUser = await getMe();
+          if (isMounted) {
+            setUser(currentUser);
+            setIsLoggedIn(true);
+            localStorage.setItem('gt_user', JSON.stringify(currentUser));
+          }
+        } catch (err) {
+          console.warn('Session expired or invalid token:', err.message);
+          if (isMounted) {
+            localStorage.removeItem('gt_access_token');
+            localStorage.removeItem('gt_user');
+            setUser(null);
+            setIsLoggedIn(false);
+          }
+        }
+      } else {
+        if (isMounted) {
+          setIsLoggedIn(false);
+          setUser(null);
+        }
+      }
+      if (isMounted) {
+        setIsLoadingAuth(false);
+      }
+    }
+
+    checkAuthSession();
+    return () => {
+      isMounted = false;
     };
-    setUser(loggedUser);
+  }, []);
+
+  const login = async (email, password) => {
+    const data = await loginUser(email, password);
+    if (data?.tokens?.accessToken) {
+      localStorage.setItem('gt_access_token', data.tokens.accessToken);
+    }
+    if (data?.user) {
+      setUser(data.user);
+      localStorage.setItem('gt_user', JSON.stringify(data.user));
+    }
     setIsLoggedIn(true);
-    return true;
+    return data.user;
   };
 
-  const signup = (userData) => {
-    // Simulating user registration
-    const newUser = {
-      firstName: userData.firstName || 'User',
-      lastName: userData.lastName || '',
-      email: userData.email || '',
-      phone: userData.phone || '',
-      city: userData.city || '',
-      country: userData.country || '',
-      photo: userData.photo || DEFAULT_USER.photo,
-      bio: userData.bio || '',
-    };
-    setUser(newUser);
+  const signup = async (userData) => {
+    const data = await registerUser(userData);
+    if (data?.tokens?.accessToken) {
+      localStorage.setItem('gt_access_token', data.tokens.accessToken);
+    }
+    if (data?.user) {
+      setUser(data.user);
+      localStorage.setItem('gt_user', JSON.stringify(data.user));
+    }
     setIsLoggedIn(true);
-    return true;
+    return data.user;
   };
 
   const logout = () => {
+    localStorage.removeItem('gt_access_token');
+    localStorage.removeItem('gt_user');
+    setUser(null);
     setIsLoggedIn(false);
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, signup, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, login, signup, logout, isLoadingAuth }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,106 +1,74 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/common/Header';
 import CityGroupSection from '../components/select-cities/CityGroupSection';
-
-const MOCK_GROUPS = [
-  {
-    state: 'Goa',
-    layout: 'grid',
-    cities: [
-      {
-        id: 'dudhsagar',
-        name: 'Dudhsagar',
-        state: 'Goa',
-        image: 'https://images.unsplash.com/photo-1584467541268-b040f83be3fd?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'north-goa',
-        name: 'North Goa',
-        state: 'Goa',
-        image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'panjim',
-        name: 'Panjim',
-        state: 'Goa',
-        image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'south-goa',
-        name: 'South Goa',
-        state: 'Goa',
-        image: 'https://images.unsplash.com/photo-1614082242765-7c98ca0f3df3?auto=format&fit=crop&w=600&q=80',
-      },
-    ],
-  },
-  {
-    state: 'Gujarat',
-    layout: 'scroll',
-    cities: [
-      {
-        id: 'ahmedabad',
-        name: 'Ahmedabad',
-        state: 'Gujarat',
-        image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'daman',
-        name: 'Daman',
-        state: 'Gujarat',
-        image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'diu',
-        name: 'Diu',
-        state: 'Gujarat',
-        image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'statue-of-unity',
-        name: 'Statue of Unity',
-        state: 'Gujarat',
-        image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=600&q=80',
-      },
-    ],
-  },
-  {
-    state: 'Maharashtra',
-    layout: 'grid',
-    cities: [
-      {
-        id: 'mumbai',
-        name: 'Mumbai',
-        state: 'Maharashtra',
-        image: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'lonavla',
-        name: 'Lonavla',
-        state: 'Maharashtra',
-        image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'ajanta-ellora',
-        name: 'Ajanta-Ellora',
-        state: 'Maharashtra',
-        image: 'https://images.unsplash.com/photo-1600100397608-f010e423b971?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        id: 'mahabaleshwar',
-        name: 'Mahabaleshwar',
-        state: 'Maharashtra',
-        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
-      },
-    ],
-  },
-];
+import { fetchTopRegionalDestinations } from '../services/api';
 
 export default function SelectCitiesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
+  const initialTripInfo = location.state?.tripInfo || null;
+
+  const [cityGroups, setCityGroups] = useState([]);
+  const [allCitiesList, setAllCitiesList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCityIds, setSelectedCityIds] = useState(['north-goa', 'ahmedabad']);
+  const [selectedCityIds, setSelectedCityIds] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadBackendCities() {
+      try {
+        setIsLoading(true);
+        const data = await fetchTopRegionalDestinations({ limit: 50 });
+        if (isMounted && data?.destinations) {
+          const rawCities = data.destinations.map((c) => ({
+            id: c.id,
+            name: c.name,
+            state: c.state || 'Popular',
+            country: c.country,
+            region: c.region,
+            image: c.bannerImageUrl || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=600&q=80',
+            description: c.description,
+          }));
+          setAllCitiesList(rawCities);
+
+          // Group by state
+          const groupedMap = rawCities.reduce((acc, city) => {
+            const groupKey = city.state || 'Popular';
+            if (!acc[groupKey]) {
+              acc[groupKey] = [];
+            }
+            acc[groupKey].push(city);
+            return acc;
+          }, {});
+
+          const groups = Object.keys(groupedMap).map((stateKey) => ({
+            state: stateKey,
+            layout: 'grid',
+            cities: groupedMap[stateKey],
+          }));
+
+          setCityGroups(groups);
+
+          // Select first city by default if none selected
+          if (rawCities.length > 0) {
+            setSelectedCityIds([rawCities[0].id]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load cities from database:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadBackendCities();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleToggleCity = (cityId) => {
     setSelectedCityIds((prev) =>
@@ -109,23 +77,23 @@ export default function SelectCitiesPage() {
   };
 
   // Filter groups & cities by search query
-  const filteredGroups = MOCK_GROUPS.map((group) => {
-    const matchesState = group.state.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchingCities = group.cities.filter(
-      (c) => matchesState || c.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    return {
-      ...group,
-      cities: matchingCities,
-    };
-  }).filter((group) => group.cities.length > 0);
+  const filteredGroups = cityGroups
+    .map((group) => {
+      const matchesState = group.state.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchingCities = group.cities.filter(
+        (c) => matchesState || c.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      return {
+        ...group,
+        cities: matchingCities,
+      };
+    })
+    .filter((group) => group.cities.length > 0);
 
-  // Get selected city objects
-  const allCities = MOCK_GROUPS.flatMap((g) => g.cities);
-  const selectedCities = allCities.filter((c) => selectedCityIds.includes(c.id));
+  const selectedCities = allCitiesList.filter((c) => selectedCityIds.includes(c.id));
 
   const handleContinue = () => {
-    navigate('/select-activities', { state: { selectedCities } });
+    navigate('/select-activities', { state: { selectedCities, tripInfo: initialTripInfo } });
   };
 
   return (
@@ -140,7 +108,7 @@ export default function SelectCitiesPage() {
               Select your destination cities
             </h2>
             <p className="font-body-md text-body-md text-on-surface-variant">
-              Choose the places you want to explore.
+              Choose the places you want to explore from database.
             </p>
           </div>
 
@@ -167,22 +135,28 @@ export default function SelectCitiesPage() {
           </div>
 
           {/* City Selection Groups */}
-          <div className="flex flex-col gap-8">
-            {filteredGroups.length > 0 ? (
-              filteredGroups.map((group) => (
-                <CityGroupSection
-                  key={group.state}
-                  group={group}
-                  selectedCityIds={selectedCityIds}
-                  onToggleCity={handleToggleCity}
-                />
-              ))
-            ) : (
-              <div className="p-8 text-center bg-surface-container rounded-2xl">
-                <p className="font-body-md text-on-surface-variant">No cities found matching "{searchQuery}"</p>
-              </div>
-            )}
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-8">
+              {filteredGroups.length > 0 ? (
+                filteredGroups.map((group) => (
+                  <CityGroupSection
+                    key={group.state}
+                    group={group}
+                    selectedCityIds={selectedCityIds}
+                    onToggleCity={handleToggleCity}
+                  />
+                ))
+              ) : (
+                <div className="p-8 text-center bg-surface-container rounded-2xl">
+                  <p className="font-body-md text-on-surface-variant">No cities found matching "{searchQuery}"</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
